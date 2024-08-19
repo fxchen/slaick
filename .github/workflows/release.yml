@@ -1,0 +1,129 @@
+name: Create Public Release with Squashed Commits
+
+on:
+  workflow_dispatch:
+    inputs:
+      checkpoint_name:
+        description: 'Name for this checkpoint (e.g. v1.0, feature-x-complete)'
+        required: true
+        type: string
+      custom_message:
+        description: 'Custom message for the release commit (leave empty to use default with commit messages)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Perform a dry run without pushing changes (true/false)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  PUBLIC_REPO_URL: ${{ secrets.PUBLIC_REPO_URL }}
+
+jobs:
+  create_checkpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout private repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # Fetch all history
+
+      - name: Setup Git
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+      - name: Validate inputs
+        run: |
+          if [[ -z "$PUBLIC_REPO_URL" ]]; then
+            echo "Error: PUBLIC_REPO_URL is not set. Please add it to your repository secrets."
+            exit 1
+          fi
+
+      - name: Fetch public repo
+        env:
+          PUBLIC_REPO_PAT: ${{ secrets.PUBLIC_REPO_PAT }}
+        run: |
+          echo "Fetching public repo..."
+          git remote add public https://${PUBLIC_REPO_PAT}@${PUBLIC_REPO_URL#https://} || { echo "Failed to add public remote. Check your PUBLIC_REPO_URL secret."; exit 1; }
+          git fetch public || { echo "Failed to fetch from public repo. Check your credentials and repo URL."; exit 1; }
+          echo "Public repo fetched successfully."
+
+      - name: Create checkpoint with squashed commits
+        id: create_checkpoint
+        run: |
+          set -eo pipefail
+          echo "Starting checkpoint creation process..."
+
+          if git ls-remote --exit-code --heads public main; then
+            echo "Public main branch found. Creating temp branch..."
+            git checkout -b temp public/main
+          else
+            echo "Public main branch not found. Creating orphan branch..."
+            git checkout --orphan temp
+            git rm -rf .
+            # Create an initial empty commit
+            git commit --allow-empty -m "Initial commit"
+          fi
+
+          LATEST_PRIVATE_COMMIT=$(git rev-parse origin/main)
+          echo "Latest private commit: $LATEST_PRIVATE_COMMIT"
+          
+          LAST_CHECKPOINT=$(git log --grep="^Release:" --format="%H" -n 1 temp)
+          [[ -n "$LAST_CHECKPOINT" ]] && echo "Last checkpoint found: $LAST_CHECKPOINT" || echo "No previous checkpoint found."
+          
+          if [[ -n "${{ github.event.inputs.custom_message }}" ]]; then
+            echo "Using custom message for release."
+            SQUASH_MESSAGE="Release: ${{ github.event.inputs.checkpoint_name }}\n${{ github.event.inputs.custom_message }}"
+          else
+            echo "Generating release message from commit history."
+            if [[ -n "$LAST_CHECKPOINT" ]]; then
+              COMMIT_MESSAGES=$(git log --pretty=format:"- %s" $LAST_CHECKPOINT..$LATEST_PRIVATE_COMMIT)
+            else
+              COMMIT_MESSAGES=$(git log --pretty=format:"- %s" $LATEST_PRIVATE_COMMIT)
+            fi
+            SQUASH_MESSAGE="Release: ${{ github.event.inputs.checkpoint_name }}\nIncluded commits:\n$COMMIT_MESSAGES"
+          fi
+          
+          echo "Creating squashed commit..."
+          git rm -rf . 2>/dev/null || true
+          git clean -fdx
+          git checkout $LATEST_PRIVATE_COMMIT -- .
+          git add .
+          git commit -m "$SQUASH_MESSAGE"
+          
+          echo "Creating checkpoint commit..."
+          echo "Checkpoint: ${{ github.event.inputs.checkpoint_name }}" > CHECKPOINT.md
+          echo "Created at: $(date)" >> CHECKPOINT.md
+          git add CHECKPOINT.md
+          git commit -m "Checkpoint: ${{ github.event.inputs.checkpoint_name }}"
+
+          echo "Checkpoint creation process completed successfully."
+          echo "checkpoint_branch=temp" >> $GITHUB_OUTPUT
+
+      - name: Push to public repo
+        if: ${{ !fromJson(github.event.inputs.dry_run) }}
+        env:
+          PUBLIC_REPO_PAT: ${{ secrets.PUBLIC_REPO_PAT }}
+        run: |
+          echo "Pushing changes to public repo..."
+          CHECKPOINT_BRANCH="${{ steps.create_checkpoint.outputs.checkpoint_branch }}"
+          git push -v https://${PUBLIC_REPO_PAT}@${PUBLIC_REPO_URL#https://} $CHECKPOINT_BRANCH:main || { echo "Failed to push to public repo. Check your credentials and repo settings."; exit 1; }
+          echo "Changes pushed to public repo successfully."
+
+      - name: Dry run summary
+        if: ${{ fromJson(github.event.inputs.dry_run) }}
+        run: |
+          echo "Dry run completed. Changes were not pushed to the public repo."
+          echo "Summary of changes:"
+          git log --oneline public/main..${{ steps.create_checkpoint.outputs.checkpoint_branch }}
+
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "Cleaning up..."
+          git checkout main
+          git branch -D temp || true
+          git remote remove public || true
+          echo "Cleanup completed."

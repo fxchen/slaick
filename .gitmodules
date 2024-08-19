@@ -1,0 +1,3 @@
+[submodule "vendor/chatgptinslack"]
+	path = vendor/chatgptinslack
+	url = git@github.com:seratch/ChatGPT-in-Slack.git
