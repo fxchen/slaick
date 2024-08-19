@@ -33,6 +33,7 @@ from lib.env import (
 vendor_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "vendor/chatgptinslack"))
 sys.path.insert(0, vendor_dir)
 
+from lib.files import get_file_content_if_exists, is_bot_able_to_access_files
 from lib.formatting import (
     format_llm_message_for_slack,
     format_message_content_for_llm,
@@ -44,7 +45,6 @@ from vendor.chatgptinslack.app.i18n import translate
 from vendor.chatgptinslack.app.sensitive_info_redaction import redact_string
 from vendor.chatgptinslack.app.slack_constants import DEFAULT_LOADING_TEXT, TIMEOUT_ERROR_MESSAGE
 from vendor.chatgptinslack.app.slack_ops import (
-    can_send_image_url_to_openai,
     find_parent_message,
     is_this_app_mentioned,
     post_wip_message,
@@ -367,26 +367,25 @@ class Slaick:
                 }
             ]
 
-            # Handle image content if present and allowed
-            if reply.get("bot_id") is None and can_send_image_url_to_openai(context):
-                new_content = get_file_content_if_exists(
+            # Handle files content if present and allowed
+            if reply.get("bot_id") is None and is_bot_able_to_access_files(context):
+                maybe_new_content = get_file_content_if_exists(
+                    context=context,
                     bot_token=context.bot_token,  # type: ignore
                     files=reply.get("files", []),
                     content=content,
                     logger=context.logger,
                 )
-                if new_content:
-                    print("new content", new_content)
-                    content = new_content
+                if maybe_new_content:
+                    content = maybe_new_content
 
             # Add formatted message to the list
             messages.append(
                 {
                     "content": content,
-                    "role": "assistant" if msg_user_id == context.bot_user_id else "user",
+                    "role": ("assistant" if msg_user_id == context.bot_user_id else "user"),
                 }
             )
-
         return messages
 
     @staticmethod
