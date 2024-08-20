@@ -4,7 +4,7 @@ Slaick is a configurable Slack bot that integrates with various AI providers. Us
 
 <p align="center">
   <kbd>
-    <img width="634" alt="Slaick bot interface" src="https://github.com/user-attachments/assets/f556fbca-57b3-4866-b840-c5249f62a58e">
+    <img width="634" alt="Slaick bot interface" src="https://github.com/user-attachments/assets/d0777a1e-c913-47a1-b041-9f3c0f6b5223">
   </kbd>
 </p>
 

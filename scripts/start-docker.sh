@@ -2,11 +2,14 @@
 set -euo pipefail
 
 # Get the directory of the script
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 echo "Script directory: ${SCRIPT_DIR}"
 
 # Change to the project root directory
-cd "${SCRIPT_DIR}/.." || { echo "Failed to change directory"; exit 1; }
+cd "${SCRIPT_DIR}/.." || {
+    echo "Failed to change directory"
+    exit 1
+}
 echo "Current working directory: $(pwd)"
 
 # Function to load environment variables
@@ -18,6 +21,9 @@ load_env_vars() {
         echo "Error: .env file not found or not readable." >&2
         return 1
     fi
+
+    # Array to store environment variables
+    declare -a env_vars
 
     while IFS= read -r line || [[ -n "$line" ]]; do
         # Ignore comments and empty lines
@@ -33,12 +39,19 @@ load_env_vars() {
                 if [[ "$export_vars" == "true" ]]; then
                     export "$key=$value"
                 else
-                    eval "$key=$value"
+                    # Add to env_vars array
+                    env_vars+=("-e" "${key}=${value}")
                 fi
+
+                # Add to env_vars array
+                env_vars+=("-e" "${key}=${value}")
                 echo "Loaded: $key=$value"
             fi
         fi
     done < "$env_file"
+
+    # Export the env_vars array
+    ENV_VARS=("${env_vars[@]}")
 }
 
 # Load environment
@@ -55,8 +68,16 @@ for var in "${REQUIRED_VARS[@]}"; do
 done
 
 # Optional: Build the Docker image (if not already built)
-docker build -t slaick-app . || { echo "Docker build failed"; exit 1; }
+docker build -t slaick-app . || {
+    echo "Docker build failed"
+    exit 1
+}
 
 echo "Starting Docker container..."
 # Run the Docker container with the loaded environment variables
-docker run --env-file "$ENV_FILE" slaick-app || { echo "Docker run failed"; exit 1; }
+if [ -n "${ENV_VARS+x}" ]; then
+    docker run "${ENV_VARS[@]}" slaick-app || { echo "Docker run failed"; exit 1; }
+else
+    echo "Warning: No environment variables loaded. Running Docker without environment variables."
+    docker run slaick-app || { echo "Docker run failed"; exit 1; }
+fi

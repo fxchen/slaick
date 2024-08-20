@@ -1,12 +1,18 @@
 import base64
 import logging
+from io import BytesIO
 from typing import List, Optional
 
 import requests
+from PIL import Image
 from slack_bolt import BoltContext
 from slack_sdk.errors import SlackApiError
 
+from lib import env
 from lib.env import FILE_ACCESS_ENABLED
+
+MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB limit for vision API
+MAX_IMAGE_LENGTH = 1024  # Recommended max length for image px
 
 # Define supported file types and their corresponding categories
 # https://api.slack.com/types/file
@@ -148,6 +154,8 @@ def get_file_content_if_exists(
     files: List[dict],
     content: List[dict],
     logger: logging.Logger,
+    max_file_size: int = MAX_FILE_SIZE,
+    max_image_size: int = MAX_IMAGE_LENGTH,
 ) -> Optional[List[dict]]:
     if not files:
         return None
@@ -155,8 +163,27 @@ def get_file_content_if_exists(
     for file in files:
         slack_filetype = file.get("filetype")
         slack_mimetype = file.get("mimetype")
+        file_size = file.get("size", 0)
         if not slack_filetype or not slack_mimetype:
             logger.info(f"Skipped unsupported file type: {slack_filetype}")
+            content.append(
+                {
+                    "type": "text",
+                    "text": f"Skipped unsupported file type: {slack_filetype}",
+                }
+            )
+            continue
+
+        if file_size > max_file_size:
+            logger.info(
+                f"Skipped file exceeding size limit: {file.get('name', '')} ({file_size} bytes)"
+            )
+            content.append(
+                {
+                    "type": "text",
+                    "text": f"Skipped file exceeding size limit: {file.get('name', '')} ({file_size} bytes)",
+                }
+            )
             continue
 
         file_url = file.get("url_private", "")
@@ -175,18 +202,44 @@ def get_file_content_if_exists(
             if not is_model_able_to_receive_images(context):
                 logger.info("Model does not support images.")
                 continue
-            content_item = {
-                "type": "image_url",
-                "image_url": {"url": f"data:{slack_mimetype};base64,{encoded_content}"},
-            }
+
+            # Resize image if necessary
+            try:
+                img = Image.open(BytesIO(file_content))
+                img.thumbnail((max_image_size, max_image_size))
+                buffer = BytesIO()
+                img.save(buffer, format=img.format)
+                resized_content = buffer.getvalue()
+                encoded_content = base64.b64encode(resized_content).decode("utf-8")
+            except Exception as e:
+                logger.error(f"Failed to process image: {e}")
+                continue
+            
+            if env.PROVIDER == "bedrock" or env.PROVIDER == "anthropic":
+                content_item = {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": f"{slack_mimetype}",
+                        "data": f"{encoded_content}",
+                    }
+                }
+            else:
+                content_item = {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{slack_mimetype};base64,{encoded_content}"},
+                }
+            logger.info(f"Added image: {file.get('name', '')}")
         elif content_type == "text":
             content_item = {
                 "type": "text",
                 "text": f"File: {file.get('name', '')}\n```{file_content.decode('utf-8')}```",
             }
+            logger.info(f"Added text file: {file.get('name', '')}")
         else:
             logger.info(f"Skipped unsupported file type: {slack_filetype}")
             continue
+
         content.append(content_item)
     return content
 
@@ -217,7 +270,7 @@ def is_model_able_to_receive_images(context: BoltContext) -> bool:
     Returns:
         bool: True if the model is able to receive images, False otherwise.
     """
-    openai_model = context.get("OPENAI_MODEL")
+    model = env.LLM_MODEL
     # More supported models will come. This logic will need to be updated then.
-    can_send_image_url = openai_model is not None and openai_model.startswith("gpt-4o")
+    can_send_image_url = model is not None and model.startswith("gpt-4o")
     return can_send_image_url

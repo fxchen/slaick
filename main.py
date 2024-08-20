@@ -1,7 +1,9 @@
+import logging
 import os
 
 from slack_bolt import App
 
+from lib.env import SLACK_APP_LOG_LEVEL
 from slaick import Slaick
 
 app = App(
@@ -18,5 +20,6 @@ Slaick.register_event_handler(app, "app_mention", Slaick.handle_app_mention)
 Slaick.register_event_handler(app, "message", Slaick.handle_message)
 
 if __name__ == "__main__":
+    logging.basicConfig(level=SLACK_APP_LOG_LEVEL)
     # Start the Socket Mode handler
     Slaick.start_socket_mode(app)

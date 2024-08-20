@@ -13,37 +13,36 @@ Slack user IDs match the regex `<@U.*?>`.
 Your Slack user ID is <@{bot_user_id}>.
 Each message has the author's Slack user ID prepended, like the regex `^<@U.*?>: ` followed by the message text.
 Do not use headings for markdown, instead use bold text.
-For section breaks, use a horizontal rule `---`.
 """,
 )
 MAX_RESPONSE_TOKENS = os.environ.get("MAX_RESPONSE_TOKENS", 1024)
 
-# OpenAI Configuration
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o")
-OPENAI_API_BASE = os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1")
-OPENAI_IMAGE_GENERATION_MODEL = os.environ.get("OPENAI_IMAGE_GENERATION_MODEL", "dall-e-3")
-OPENAI_API_VERSION = os.environ.get("OPENAI_API_VERSION", None)
-OPENAI_DEPLOYMENT_ID = os.environ.get("OPENAI_DEPLOYMENT_ID", None)
-OPENAI_ORG_ID = os.environ.get("OPENAI_ORG_ID", None)
-OPENAI_FUNCTION_CALL_MODULE_NAME = os.environ.get("OPENAI_FUNCTION_CALL_MODULE_NAME", None)
+# LLM Configuration
+LLM_API_KEY = os.environ.get(f"{PROVIDER.upper()}_API_KEY")
+LLM_MODEL = os.environ.get(f"{PROVIDER.upper()}_MODEL")
+LLM_API_BASE = os.environ.get(f"{PROVIDER.upper()}_API_BASE")
+LLM_API_VERSION = os.environ.get(f"{PROVIDER.upper()}_API_VERSION")
+LLM_ORG_ID = os.environ.get(f"{PROVIDER.upper()}_ORG_ID")
 
-# Anthropic Configuration
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20240620")
-ANTHROPIC_API_BASE = os.environ.get("ANTHROPIC_API_BASE", "https://api.anthropic.com/v1")
-ANTHROPIC_API_VERSION = os.environ.get("ANTHROPIC_API_VERSION", None)
+# Image Generation Configuration
+IMAGE_GENERATION_MODEL = os.environ.get(f"{PROVIDER.upper()}_IMAGE_GENERATION_MODEL")
 
-# Amazon Bedrock Configuration
-BEDROCK_ASSUME_ROLE = os.environ.get("BEDROCK_ASSUME_ROLE")
-AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
-AWS_REGION_NAME = os.environ.get("AWS_REGION_NAME", "us-east-1")
-BEDROCK_MODEL = os.environ.get("BEDROCK_MODEL", "bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0")
-BEDROCK_API_BASE = os.environ.get("BEDROCK_API_BASE", "https://api.bedrock.aws/v1")
-BEDROCK_IMAGE_MODEL = os.environ.get(
-    "BEDROCK_IMAGE_MODEL", "bedrock/stability.stable-diffusion-xl-v0"
-)
+# Provider-specific configurations
+if PROVIDER == "openai":
+    LLM_MODEL = LLM_MODEL or "gpt-4o"
+    IMAGE_GENERATION_MODEL = IMAGE_GENERATION_MODEL or "dall-e-3"
+elif PROVIDER == "anthropic":
+    LLM_MODEL = LLM_MODEL or "claude-3-5-sonnet-20240620"
+elif PROVIDER == "bedrock":
+    # Low availability through AWS request
+    # LLM_MODEL = LLM_MODEL or "anthropic.claude-3-5-sonnet-20240620-v1:0"
+    LLM_MODEL = LLM_MODEL or "anthropic.claude-3-sonnet-20240229-v1:0"
+    IMAGE_GENERATION_MODEL = IMAGE_GENERATION_MODEL or "stability.stable-diffusion-xl-v0"
+    AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+    AWS_REGION_NAME = os.environ.get("AWS_REGION_NAME", "us-east-1")
+    BEDROCK_ASSUME_ROLE = os.environ.get("BEDROCK_ASSUME_ROLE")
+
 
 # Feature Flags
 USE_SLACK_LANGUAGE = os.environ.get("USE_SLACK_LANGUAGE", "true") == "true"
