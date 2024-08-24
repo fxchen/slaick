@@ -74,7 +74,7 @@ To use an alternate provider, set the `PROVIDER` variable in your `.env` file to
 
 </details>
 
-<!-- <details>
+<details>
 <summary>Anthropic</summary>
 
 - `ANTHROPIC_API_KEY`: Your Anthropic API key (**required**)
@@ -86,15 +86,19 @@ To use an alternate provider, set the `PROVIDER` variable in your `.env` file to
 <details>
 <summary>Amazon Bedrock</summary>
 
+⚠️ Make AWS model access request [here](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess) (models are not available by default)
+
 - `AWS_ACCESS_KEY_ID`: AWS access key ID (**required**)
 - `AWS_SECRET_ACCESS_KEY`: AWS secret access key (**required**)
+- `AWS_SESSION_TOKEN`: AWS session token (**required**)
 - `BEDROCK_ASSUME_ROLE`: AWS role for Bedrock access (**alternative auth**)
 - `AWS_REGION_NAME`: AWS region (default: `"us-east-1"`)
-- `BEDROCK_MODEL`: Bedrock model to use (default: `bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0`)
-- `BEDROCK_IMAGE_MODEL`: Bedrock model for image generation (default: `bedrock/stability.stable-diffusion-xl-v0`)
+- `BEDROCK_MODEL`: Bedrock model to use (default: `anthropic.claude-3-sonnet-20240229-v1:0`)
+- `BEDROCK_IMAGE_MODEL`: Bedrock model for image generation (default: `stability.stable-diffusion-xl-v0`)
 - `BEDROCK_API_BASE`: Bedrock API base URL (optional)
 
-</details> -->
+</details>
+
 
 ## Data Redaction
 
@@ -115,8 +119,7 @@ When enabled, the application can redact sensitive information using regex patte
 
 Here's what's coming soon:
 
-- Amazon Bedrock Integration: Seamless integration with Amazon's AI services.
-- Anthropic Integration: Full support for Anthropic's AI models.
+- Tool usage / plugins: Enable a plugin architecture to better support RAG and tool calls
 - Image Generation: Create images directly from your Slack conversations.
 
 ## Inspirations

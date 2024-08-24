@@ -34,12 +34,13 @@ if PROVIDER == "openai":
 elif PROVIDER == "anthropic":
     LLM_MODEL = LLM_MODEL or "claude-3-5-sonnet-20240620"
 elif PROVIDER == "bedrock":
-    # Low availability through AWS request
+    # Make AWS request for models (they are not available by default)
     # LLM_MODEL = LLM_MODEL or "anthropic.claude-3-5-sonnet-20240620-v1:0"
     LLM_MODEL = LLM_MODEL or "anthropic.claude-3-sonnet-20240229-v1:0"
     IMAGE_GENERATION_MODEL = IMAGE_GENERATION_MODEL or "stability.stable-diffusion-xl-v0"
     AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+    AWS_SESSION_TOKEN = os.environ.get("AWS_SESSION_TOKEN")
     AWS_REGION_NAME = os.environ.get("AWS_REGION_NAME", "us-east-1")
     BEDROCK_ASSUME_ROLE = os.environ.get("BEDROCK_ASSUME_ROLE")
 

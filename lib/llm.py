@@ -33,6 +33,7 @@ class LLMClient:
         # Set up AWS credentials for Bedrock
         os.environ["AWS_ACCESS_KEY_ID"] = env.AWS_ACCESS_KEY_ID
         os.environ["AWS_SECRET_ACCESS_KEY"] = env.AWS_SECRET_ACCESS_KEY
+        os.environ["AWS_SESSION_TOKEN"] = env.AWS_SESSION_TOKEN
         os.environ["AWS_REGION_NAME"] = env.AWS_REGION_NAME
         # self.test_bedrock_connection()
 
@@ -56,6 +57,7 @@ class LLMClient:
                 messages=[{"role": "user", "content": "Hello, how are you?"}],
                 aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
                 aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+                aws_session_token=os.environ["AWS_SESSION_TOKEN"],
                 aws_region_name=os.environ["AWS_REGION_NAME"],
             )
             print("Bedrock connection successful!")
@@ -86,7 +88,22 @@ class LLMClient:
             stream=stream,
             **kwargs,
         )
-        
+
+    @staticmethod
+    def is_model_able_to_receive_images() -> bool:
+        """
+        Determines if the model is able to receive images.
+
+        Args:
+            context (BoltContext): The context object containing the model information.
+
+        Returns:
+            bool: True if the model is able to receive images, False otherwise.
+        """
+        model = env.LLM_MODEL
+        can_send_image_url = model is not None and litellm.supports_vision(model)
+        return can_send_image_url
+
     def messages_within_context_window(
         self,
         messages: List[Dict[str, Union[str, Dict[str, str]]]],

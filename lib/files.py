@@ -10,6 +10,7 @@ from slack_sdk.errors import SlackApiError
 
 from lib import env
 from lib.env import FILE_ACCESS_ENABLED
+from lib.llm import LLMClient
 
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB limit for vision API
 MAX_IMAGE_LENGTH = 1024  # Recommended max length for image px
@@ -197,9 +198,8 @@ def get_file_content_if_exists(
         content_type = categorize_file(slack_filetype)
         content_item = {}
 
-        # https://platform.openai.com/docs/guides/vision?lang=python
         if content_type == "image":
-            if not is_model_able_to_receive_images(context):
+            if not LLMClient.is_model_able_to_receive_images():
                 logger.info("Model does not support images.")
                 continue
 
@@ -259,18 +259,3 @@ def is_bot_able_to_access_files(context: BoltContext) -> bool:
     bot_scopes = context.authorize_result.bot_scopes or []  # type: ignore
     return bool(context and "files:read" in bot_scopes)
 
-
-def is_model_able_to_receive_images(context: BoltContext) -> bool:
-    """
-    Determines if the model is able to receive images.
-
-    Args:
-        context (BoltContext): The context object containing the model information.
-
-    Returns:
-        bool: True if the model is able to receive images, False otherwise.
-    """
-    model = env.LLM_MODEL
-    # More supported models will come. This logic will need to be updated then.
-    can_send_image_url = model is not None and model.startswith("gpt-4o")
-    return can_send_image_url
