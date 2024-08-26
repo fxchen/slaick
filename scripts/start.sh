@@ -67,7 +67,6 @@ load_env_vars() {
                     eval "$key"='$value'
                 fi
                 echo "Loaded: $key=$value"
-            else
             fi
         fi
     done <"$env_file"
