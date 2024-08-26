@@ -76,9 +76,18 @@ class LLMClient:
             kwargs["functions"] = import_module(function_call_module_name).functions
 
         if env.PROVIDER == "bedrock":
-            kwargs["aws_access_key_id"] = env.AWS_ACCESS_KEY_ID
-            kwargs["aws_secret_access_key"] = env.AWS_SECRET_ACCESS_KEY
-            kwargs["aws_region_name"] = env.AWS_REGION_NAME
+            return litellm.completion(
+                model=env.LLM_MODEL,
+                messages=messages,
+                temperature=env.TEMPERATURE,
+                max_tokens=env.MAX_RESPONSE_TOKENS,
+                stream=stream,
+                aws_access_key_id=env.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=env.AWS_SECRET_ACCESS_KEY,
+                aws_session_token=env.AWS_SESSION_TOKEN,
+                aws_region_name=env.AWS_REGION_NAME,
+                **kwargs,
+            )
 
         return litellm.completion(
             model=env.LLM_MODEL,

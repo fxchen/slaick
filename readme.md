@@ -74,7 +74,7 @@ To use an alternate provider, set the `PROVIDER` variable in your `.env` file to
 
 </details>
 
-<details>
+<details open>
 <summary>Anthropic</summary>
 
 - `ANTHROPIC_API_KEY`: Your Anthropic API key (**required**)
@@ -83,7 +83,7 @@ To use an alternate provider, set the `PROVIDER` variable in your `.env` file to
 
 </details>
 
-<details>
+<details open>
 <summary>Amazon Bedrock</summary>
 
 ⚠️ Make AWS model access request [here](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess) (models are not available by default)

@@ -313,7 +313,7 @@ class Slaick:
         Process the litellm API response and update the Slack message accordingly.
         """
         # Get the litellm response stream
-        stream = stream = cls.llm_client.get_completion(messages, stream=True)
+        stream = cls.llm_client.get_completion(messages, stream=True)
 
         # Check if a new reply has come in since we started processing
         latest_replies = client.conversations_replies(
