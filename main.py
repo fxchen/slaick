@@ -4,6 +4,7 @@ import os
 from slack_bolt import App
 
 from lib.env import SLACK_APP_LOG_LEVEL
+from plugins.file_plugin import FilePlugin
 from slaick import Slaick
 
 app = App(
@@ -12,7 +13,8 @@ app = App(
     process_before_response=True,
 )
 
-# Set up middleware
+# Set up Slaick
+Slaick.initialize(plugins=[FilePlugin()])
 Slaick.setup_middleware(app)
 
 # Register event handlers

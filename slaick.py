@@ -1,3 +1,4 @@
+import importlib
 import json
 import logging
 import os
@@ -18,19 +19,68 @@ from slack_sdk.web import WebClient
 vendor_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "vendor/chatgptinslack"))
 sys.path.insert(0, vendor_dir)
 
-from lib import env, files, formatting, llm, slack
+from lib import env, formatting, llm, slack
+from plugins.base_plugin import BasePlugin, PluginManager
 from vendor.chatgptinslack.app.i18n import translate
 from vendor.chatgptinslack.app.sensitive_info_redaction import redact_string
 from vendor.chatgptinslack.app.slack_constants import TIMEOUT_ERROR_MESSAGE
 from vendor.chatgptinslack.app.slack_ops import find_parent_message, is_this_app_mentioned
 
 
+class BaseEventHandler:
+    def handle_event(
+        self, context: BoltContext, payload: dict, client: WebClient, logger: logging.Logger
+    ):
+        raise NotImplementedError("Subclasses must implement handle_event method")
+
+
+class MessageHandler(BaseEventHandler):
+    def handle_event(self, **kwargs):
+        print(f"Received message: {kwargs.get('text', '')}")
+
+
+class ReactionHandler(BaseEventHandler):
+    def handle_event(self, **kwargs):
+        print(f"Reaction added: {kwargs.get('reaction', '')}")
+
+
 class Slaick:
     MESSAGE_SUBTYPES_TO_SKIP = ["message_changed", "message_deleted"]
     llm_client = llm.LLMClient()
+    plugin_manager = None
 
-    def __init__(self):
-        pass
+    @classmethod
+    def initialize(cls, plugins=None):
+        cls.plugin_manager = PluginManager()
+
+        if plugins:
+            for plugin in plugins:
+                cls.plugin_manager.register_plugin(plugin)
+
+    def __init__(self, plugins=None):
+        if Slaick.plugin_manager is None:
+            self.initialize(plugins)
+        self.plugins = Slaick.plugin_manager.plugins.copy()
+
+    def register_plugin(self, plugin: BasePlugin):
+        self.plugins.append(plugin)
+
+    @classmethod
+    def handle_event(cls, event_type: str, **kwargs):
+        for plugin in cls.plugins:
+            for handler in plugin.get_handlers(event_type):
+                handler(**kwargs)
+
+    def load_plugin(self, plugin_name: str):
+        module = importlib.import_module(f"plugins.{plugin_name}")
+        plugin_class = getattr(module, f"{plugin_name.capitalize()}Plugin")
+        plugin = plugin_class()
+        self.register_plugin(plugin)
+
+    def trigger_event(self, event_type: str, **kwargs):
+        for plugin in self.plugins:
+            for handler in plugin.get_handlers(event_type):
+                handler.handle_event(**kwargs)
 
     @staticmethod
     def before_authorize(body: dict, payload: dict, logger: logging.Logger, next_):
@@ -165,6 +215,12 @@ class Slaick:
 
     @classmethod
     def _process_message(
+        cls, context: BoltContext, payload: dict, client: WebClient, logger: logging.Logger
+    ):
+        cls.trigger_event("message", context=context, payload=payload, client=client, logger=logger)
+
+    @classmethod
+    def _process_message(
         cls,
         context: BoltContext,
         payload: dict,
@@ -278,19 +334,10 @@ class Slaick:
                 }
             ]
 
-            # Handle files content if present and allowed
-            if reply.get("bot_id") is None and files.is_bot_able_to_access_files(context):
-                maybe_new_content = files.get_file_content_if_exists(
-                    context=context,
-                    bot_token=context.bot_token,  # type: ignore
-                    files=reply.get("files", []),
-                    content=content,
-                    logger=context.logger,
-                )
-                if maybe_new_content:
-                    content = maybe_new_content
+            # Process message using plugins
+            plugin_content = Slaick.plugin_manager.process_message(context, reply, context.logger)
+            content.extend(plugin_content)
 
-            # Add formatted message to the list
             messages.append(
                 {
                     "content": content,
