@@ -1,4 +1,3 @@
-import importlib
 import json
 import logging
 import os
@@ -20,28 +19,11 @@ vendor_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "vendor/cha
 sys.path.insert(0, vendor_dir)
 
 from lib import env, formatting, llm, slack
-from plugins.base_plugin import BasePlugin, PluginManager
+from plugins.base_plugin import PluginManager
 from vendor.chatgptinslack.app.i18n import translate
 from vendor.chatgptinslack.app.sensitive_info_redaction import redact_string
 from vendor.chatgptinslack.app.slack_constants import TIMEOUT_ERROR_MESSAGE
 from vendor.chatgptinslack.app.slack_ops import find_parent_message, is_this_app_mentioned
-
-
-class BaseEventHandler:
-    def handle_event(
-        self, context: BoltContext, payload: dict, client: WebClient, logger: logging.Logger
-    ):
-        raise NotImplementedError("Subclasses must implement handle_event method")
-
-
-class MessageHandler(BaseEventHandler):
-    def handle_event(self, **kwargs):
-        print(f"Received message: {kwargs.get('text', '')}")
-
-
-class ReactionHandler(BaseEventHandler):
-    def handle_event(self, **kwargs):
-        print(f"Reaction added: {kwargs.get('reaction', '')}")
 
 
 class Slaick:
@@ -60,27 +42,6 @@ class Slaick:
     def __init__(self, plugins=None):
         if Slaick.plugin_manager is None:
             self.initialize(plugins)
-        self.plugins = Slaick.plugin_manager.plugins.copy()
-
-    def register_plugin(self, plugin: BasePlugin):
-        self.plugins.append(plugin)
-
-    @classmethod
-    def handle_event(cls, event_type: str, **kwargs):
-        for plugin in cls.plugins:
-            for handler in plugin.get_handlers(event_type):
-                handler(**kwargs)
-
-    def load_plugin(self, plugin_name: str):
-        module = importlib.import_module(f"plugins.{plugin_name}")
-        plugin_class = getattr(module, f"{plugin_name.capitalize()}Plugin")
-        plugin = plugin_class()
-        self.register_plugin(plugin)
-
-    def trigger_event(self, event_type: str, **kwargs):
-        for plugin in self.plugins:
-            for handler in plugin.get_handlers(event_type):
-                handler.handle_event(**kwargs)
 
     @staticmethod
     def before_authorize(body: dict, payload: dict, logger: logging.Logger, next_):
@@ -212,12 +173,6 @@ class Slaick:
             and slack.is_bot_mentioned_in_thread(client, context, payload)
         ):
             Slaick._process_message(context, payload, client, logger)
-
-    @classmethod
-    def _process_message(
-        cls, context: BoltContext, payload: dict, client: WebClient, logger: logging.Logger
-    ):
-        cls.trigger_event("message", context=context, payload=payload, client=client, logger=logger)
 
     @classmethod
     def _process_message(
