@@ -289,9 +289,14 @@ class Slaick:
                 }
             ]
 
-            # Process message using plugins
-            plugin_content = Slaick.plugin_manager.process_message(context, reply, context.logger)
-            content.extend(plugin_content)
+            # process message using plugins
+            if Slaick.plugin_manager.run_on_last_message_only:
+                if reply == messages_in_context[-1]:
+                    plugin_content = Slaick.plugin_manager.process_message(context, reply, context.logger)
+                    content.extend(plugin_content)
+            else:
+                plugin_content = Slaick.plugin_manager.process_message(context, reply, context.logger)
+                content.extend(plugin_content)
 
             messages.append(
                 {

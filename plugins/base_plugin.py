@@ -10,6 +10,10 @@ class BasePlugin(ABC):
     def process_message(self, context: BoltContext, message: Dict[str, Any], logger: logging.Logger) -> List[Dict[str, Any]]:
         pass
 
+    @property
+    def run_on_last_message_only(self) -> bool:
+        return False
+
 
 class PluginManager:
     def __init__(self):

@@ -45,6 +45,15 @@ check_for_changes() {
     return 1
 }
 
+# Function to add a local git tag
+add_local_git_tag() {
+    local tag_name="$1"
+    local commit_hash="$2"
+    echo "Adding local git tag: $tag_name"
+    git tag -a "$tag_name" "$commit_hash" -m "Checkpoint: $tag_name"
+    echo "Local git tag added successfully."
+}
+
 # Parse command line arguments
 while getopts "n:m:dh" opt; do
     case ${opt} in
@@ -148,12 +157,19 @@ echo "Checkpoint-Commit: $LATEST_PRIVATE_COMMIT" >> CHECKPOINT.md
 git add CHECKPOINT.md
 git commit -m "Checkpoint: $CHECKPOINT_NAME" || { echo "Error: Failed to create checkpoint commit."; exit 1; }
 
+# Add local git tag
+add_local_git_tag "$CHECKPOINT_NAME" HEAD
+
 # Push to public repo
 if [[ "${DRY_RUN:-}" != true ]]; then
     echo "Pushing changes to public repo..."
     if git push public $RELEASE_BRANCH:main; then
         echo "Changes pushed to public repo successfully."
         echo "Please verify the changes at: ${SLAICK_PUBLIC_REPO_URL}"
+        
+        # Push the tag to the private repository
+        echo "Pushing tag to private repository..."
+        git push origin "$CHECKPOINT_NAME" || { echo "Warning: Failed to push tag to private repository."; }
     else
         echo "Error: Failed to push to public repo. Check your credentials and repo settings."
         echo "You can try pushing manually with:"
@@ -164,6 +180,7 @@ else
     echo "Dry run completed. Changes were not pushed to the public repo."
     echo "Summary of changes that would be pushed:"
     git log --oneline public/main..$RELEASE_BRANCH
+    echo "Local tag '$CHECKPOINT_NAME' was created but not pushed."
 fi
 
 # Cleanup
